@@ -7,6 +7,7 @@ struct Elevator {
     queue: Vec<(Passanger)>,
     current_flor: i32,
     door_closed: bool,
+    passanger_count: i32,
 }
 
 struct ControllUnit {
@@ -20,6 +21,7 @@ impl ControllUnit {
             "{} steigt in Etage {} aus",
             last_passanger.info.0, last_passanger.info.1
         );
+        elevator.passanger_count -= 1;
     }
 
     fn enter_passanger(elevator: &mut Elevator, new_pass: Passanger) {
@@ -28,6 +30,7 @@ impl ControllUnit {
             new_pass.info.0, new_pass.info.1
         );
         elevator.queue.push(new_pass);
+        elevator.passanger_count += 1;
     }
 
     fn open_door(elevator: &mut Elevator) {
