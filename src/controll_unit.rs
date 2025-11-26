@@ -3,6 +3,8 @@ use crate::floor::Floor;
 use crate::passenger::{self, Passenger};
 use std::sync::{Arc, Mutex};
 
+const CARRY_MAX: i32 = 10;
+
 #[derive(Debug)]
 pub struct ControllUnit {
     elevators: Vec<Arc<Mutex<Elevator>>>,
@@ -21,8 +23,11 @@ impl ControllUnit {
         elevator.current_floor = floor;
     }
 
-    fn get_passengers(elevator: &mut Elevator, passengers: &mut Vec<Passenger>, carry_max: i32) {
-        while let Some(passenger) = passengers.iter().next() {
+    fn get_passengers(elevator: &mut Elevator, passengers: &mut Vec<Passenger>) {
+        let mut carry_count = 0;
+        while let Some(passenger) = passengers.iter().next()
+            && carry_count <= CARRY_MAX
+        {
             let mut i = 0;
 
             while i < passengers.len() && elevator.passenger_count <= elevator.max_passenger_count {
@@ -33,6 +38,7 @@ impl ControllUnit {
                 {
                     let passenger = passengers.remove(i);
                     elevator.enter_passenger(passenger);
+                    carry_count += 1;
                 } else {
                     i += 1; // i muss nicht immer erhöht werden, weil der Vektor schrumpft!
                 }
