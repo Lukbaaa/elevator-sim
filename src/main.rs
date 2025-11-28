@@ -1,9 +1,9 @@
 extern crate rand;
-mod controll_unit;
+mod control_unit;
 mod elevator;
 mod floor;
 mod passenger;
-use crate::controll_unit::ControllUnit;
+use crate::control_unit::ControlUnit;
 use crate::elevator::Elevator;
 use crate::floor::Floor;
 use crate::passenger::Passenger;
@@ -22,7 +22,7 @@ fn main() {
         Arc::new(Mutex::new(Elevator::new(3, Vec::new(), 1, true, 0))),
     ];
 
-    let controll_unit = ControllUnit::new(elevators.clone(), building.clone());
+    let control_unit = ControlUnit::new(elevators.clone(), building.clone());
 
     println!("Starte den Floorgenerator");
 

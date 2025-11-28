@@ -6,14 +6,14 @@ use std::sync::{Arc, Mutex};
 const CARRY_MAX: i32 = 10;
 
 #[derive(Debug)]
-pub struct ControllUnit {
+pub struct ControlUnit {
     elevators: Vec<Arc<Mutex<Elevator>>>,
     floors: Vec<Arc<Mutex<Floor>>>,
 }
 
-impl ControllUnit {
+impl ControlUnit {
     pub fn new(elvs: Vec<Arc<Mutex<Elevator>>>, fls: Vec<Arc<Mutex<Floor>>>) -> Self {
-        ControllUnit {
+        ControlUnit {
             elevators: elvs,
             floors: fls,
         }
@@ -44,6 +44,10 @@ impl ControllUnit {
                 }
             }
         }
+    }
+
+    fn exit_passenger(elevator: ) {
+
     }
 
     fn start_elevators(&mut self) {}
