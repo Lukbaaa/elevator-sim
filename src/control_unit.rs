@@ -1,6 +1,7 @@
-use crate::elevator::{self, Elevator};
+use crate::elevator::{self, ElelvatorStates, Elevator};
 use crate::floor::Floor;
 use crate::passenger::{self, Passenger};
+use std::f64::consts::E;
 use std::sync::{Arc, Mutex};
 
 const CARRY_MAX: i32 = 10;
@@ -20,14 +21,18 @@ impl ControlUnit {
     }
 
     fn elevator_to_floor(elevator: &mut Elevator, floor: i32) {
-        elevator.current_floor = floor;
+        if elevator.current_floor < floor {
+            elevator.set_state(ElelvatorStates::UP);
+            elevator.current_floor = floor;
+        } else if elevator.current_floor > floor {
+            elevator.set_state(ElelvatorStates::DOWN);
+            elevator.current_floor = floor;
+        }
     }
 
     fn get_passengers(elevator: &mut Elevator, passengers: &mut Vec<Passenger>) {
-        let mut carry_count = 0;
-        while let Some(passenger) = passengers.iter().next()
-            && carry_count <= CARRY_MAX
-        {
+        elevator.set_state(ElelvatorStates::WAIT);
+        while let Some(passenger) = passengers.iter().next() {
             let mut i = 0;
 
             while i < passengers.len() && elevator.passenger_count <= elevator.max_passenger_count {
@@ -38,7 +43,6 @@ impl ControlUnit {
                 {
                     let passenger = passengers.remove(i);
                     elevator.enter_passenger(passenger);
-                    carry_count += 1;
                 } else {
                     i += 1; // i muss nicht immer erhöht werden, weil der Vektor schrumpft!
                 }
@@ -46,8 +50,9 @@ impl ControlUnit {
         }
     }
 
-    fn exit_passenger(elevator: ) {
-
+    fn exit_passengers(elevator: &mut Elevator) {
+        elevator.set_state(ElelvatorStates::WAIT);
+        elevator.remove_passengers();
     }
 
     fn start_elevators(&mut self) {}

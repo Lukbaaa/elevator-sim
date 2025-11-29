@@ -5,16 +5,23 @@ use std::thread::{self};
 use std::time::Duration;
 
 #[derive(Debug)]
+pub enum ElelvatorStates {
+    UP,
+    DOWN,
+    WAIT,
+}
+
+#[derive(Debug)]
 pub struct Elevator {
     number: i32,
-    queue: Vec<Passenger>,
+    pub queue: Vec<Passenger>,
     pub current_floor: i32,
     pub next_floor: i32,
     door_closed: bool,
     pub passenger_count: i32,
     pub max_passenger_count: i32,
+    pub current_state: ElelvatorStates,
 }
-
 impl Elevator {
     pub fn new(
         number: i32,
@@ -31,6 +38,7 @@ impl Elevator {
             passenger_count: passenger_count,
             next_floor: 0,
             max_passenger_count: 10,
+            current_state: ElelvatorStates::WAIT,
         }
     }
 
@@ -59,6 +67,21 @@ impl Elevator {
         self.passenger_count += 1;
     }
 
+    pub fn remove_passengers(&mut self) {
+        while let Some(passenger) = self.queue.iter().next() {
+            let mut i = 0;
+            while i < self.queue.len() {
+                let passenger = &self.queue[i];
+
+                if passenger.info.1 == self.current_floor {
+                    self.queue.remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+
     fn open_door(&mut self) {
         println!("Tür von Fahrstuhl {} öffnet.", self.number);
         thread::sleep(Duration::from_millis(200));
@@ -69,6 +92,10 @@ impl Elevator {
         println!("Tür von Fahrstuhl {} schließt.", self.number);
         thread::sleep(Duration::from_millis(200));
         self.door_closed = true;
+    }
+
+    pub fn set_state(&mut self, new_state: ElelvatorStates) {
+        self.current_state = new_state;
     }
 
     pub fn start_elevator(elevator: Arc<Mutex<Elevator>>, floor: Arc<Mutex<Floor>>) {
