@@ -1,83 +1,87 @@
 use crate::floor::Floor;
+use crate::message_types::{Direction, ElevatorCommand, ElevatorCommandType};
 use crate::passenger::Passenger;
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread::{self};
 use std::time::Duration;
-
-#[derive(Debug)]
-pub enum ElelvatorStates {
-    UP,
-    DOWN,
-    WAIT,
-}
 
 #[derive(Debug)]
 pub struct Elevator {
     number: i32,
     pub queue: Vec<Passenger>,
     pub current_floor: i32,
-    pub next_floor: i32,
     door_closed: bool,
     pub passenger_count: i32,
     pub max_passenger_count: i32,
-    pub current_state: ElelvatorStates,
+    pub current_state: Direction,
+    pub is_busy: bool,
 }
 impl Elevator {
     pub fn new(
-        number: i32,
-        vector: Vec<Passenger>,
-        current_floor: i32,
-        door_closed: bool,
-        passenger_count: i32,
+        _number: i32,
+        _queue: Vec<Passenger>,
+        _current_floor: i32,
+        _door_closed: bool,
+        _passenger_count: i32,
     ) -> Self {
         Elevator {
-            number: number,
-            queue: vector,
-            current_floor: current_floor,
-            door_closed: door_closed,
-            passenger_count: passenger_count,
-            next_floor: 0,
+            number: _number,
+            queue: _queue,
+            current_floor: _current_floor,
+            door_closed: _door_closed,
+            passenger_count: _passenger_count,
             max_passenger_count: 10,
-            current_state: ElelvatorStates::WAIT,
+            current_state: Direction::Wait,
+            is_busy: false,
         }
     }
 
-    fn next_floor(&mut self) {
-        if let Some(last_passenger) = self.queue.pop() {
-            self.current_floor = last_passenger.info.1;
-            println!(
-                "Fahrstuhl {} fährt in die Etage {} ...",
-                self.number, self.current_floor
-            );
-            thread::sleep(Duration::from_millis(200));
-            println!(
-                "Fahrstuhl {} ist in Etage {} angekommen.",
-                self.number, self.current_floor
-            );
-            self.passenger_count -= 1;
+    fn move_to(&mut self, target_floor: i32) {
+        if self.current_floor < target_floor {
+            self.set_state(Direction::Up);
+            println!("Fahrstuhl {} fährt hoch.. .", self.number);
+        } else if self.current_floor > target_floor {
+            self.set_state(Direction::Down);
+            println!("Fahrstuhl {} fährt runter.. .", self.number);
         }
-    }
 
-    pub fn enter_passenger(&mut self, new_pass: Passenger) {
+        self.set_state(Direction::Wait);
         println!(
-            "{} ist in Fahrstuhl {} eingestiegen und will in Etage {}",
-            new_pass.info.0, self.number, new_pass.info.1
+            "Fahrstuhl {} angekommen in Etage {}",
+            self.number, self.current_floor
         );
-        self.queue.push(new_pass);
-        self.passenger_count += 1;
+    }
+
+    pub fn enter_passenger(&mut self, current_floor: &mut Floor) {
+        while let Some(passenger) = current_floor.waiting_passengers.pop() {
+            if self.passenger_count < self.max_passenger_count {
+                println!(
+                    "{} ist in Fahrstuhl {} eingestiegen und will in Etage {}",
+                    passenger.info.0, self.number, passenger.info.1
+                );
+                self.queue.push(passenger);
+                self.passenger_count += 1;
+            } else {
+                current_floor.waiting_passengers.push(passenger);
+                break;
+            }
+        }
     }
 
     pub fn remove_passengers(&mut self) {
-        while let Some(passenger) = self.queue.iter().next() {
-            let mut i = 0;
-            while i < self.queue.len() {
-                let passenger = &self.queue[i];
-
-                if passenger.info.1 == self.current_floor {
-                    self.queue.remove(i);
-                } else {
-                    i += 1;
-                }
+        let mut i = 0;
+        while i < self.queue.len() {
+            let passenger = &self.queue[i];
+            if passenger.info.1 == self.current_floor {
+                println!(
+                    "{} steigt in Etage {} aus Fahrstuhl {} aus",
+                    passenger.info.0, self.current_floor, self.number
+                );
+                self.queue.remove(i);
+                self.passenger_count -= 1;
+            } else {
+                i += 1;
             }
         }
     }
@@ -94,29 +98,57 @@ impl Elevator {
         self.door_closed = true;
     }
 
-    pub fn set_state(&mut self, new_state: ElelvatorStates) {
+    pub fn set_state(&mut self, new_state: Direction) {
         self.current_state = new_state;
     }
 
-    pub fn start_elevator(elevator: Arc<Mutex<Elevator>>, floor: Arc<Mutex<Floor>>) {
+    pub fn start_elevator(
+        elevator: Arc<Mutex<Elevator>>,
+        floors: Vec<Arc<Mutex<Floor>>>,
+        command_receiver: Arc<Mutex<Receiver<ElevatorCommand>>>,
+    ) {
         thread::spawn(move || {
             loop {
-                {
-                    let mut floor = floor.lock().unwrap();
-                    let mut elev = elevator.lock().unwrap();
-                    elev.open_door();
-                    if let Some(passenger) = floor.waiting_passengers.pop() {
-                        elev.enter_passenger(passenger);
+                let command = { command_receiver.lock().unwrap().recv().unwrap() };
+
+                match command.command {
+                    ElevatorCommandType::MoveTo(floor) => {
+                        let (current, number) = {
+                            let elev = elevator.lock().unwrap();
+                            (elev.current_floor, elev.number)
+                        };
+                        let target = floor as i32;
+
+                        if current != target {
+                            println!(
+                                "Fahrstuhl {} fährt von Etage {} zu Etage {}",
+                                number, current, target
+                            );
+                            thread::sleep(Duration::from_millis(500));
+                            elevator.lock().unwrap().current_floor = target;
+                            println!("Fahrstuhl {} angekommen in Etage {}", number, target);
+                        }
                     }
-                    elev.close_door();
-                }
+                    ElevatorCommandType::OpenDoors => {
+                        let mut elev = elevator.lock().unwrap();
+                        elev.open_door();
 
-                {
-                    let mut elev = elevator.lock().unwrap();
-                    elev.next_floor();
-                }
+                        let mut current_floor = floors[elev.current_floor as usize].lock().unwrap();
 
-                thread::sleep(Duration::from_millis(300));
+                        elev.remove_passengers();
+
+                        elev.enter_passenger(&mut current_floor);
+                    }
+                    ElevatorCommandType::CloseDoors => {
+                        elevator.lock().unwrap().close_door();
+                    }
+                    ElevatorCommandType::Idle => {
+                        elevator.lock().unwrap().set_state(Direction::Wait);
+                    }
+                    ElevatorCommandType::Shutdown => {
+                        break;
+                    }
+                }
             }
         });
     }
