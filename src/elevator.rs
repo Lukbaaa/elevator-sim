@@ -46,12 +46,17 @@ impl Elevator {
     pub fn next_floor(&mut self) {
         if let Some(direction) = self.direction {
             if direction {
-                if self.current_floor < 3 {
+                if self.current_floor < 2 {
                     self.current_floor += 1;
+                } else if self.current_floor == 2 {
+                    self.current_floor += 1;
+                    self.direction = Some(false);
                 }
             } else {
                 if self.current_floor > 0 {
                     self.current_floor -= 1;
+                } else if self.current_floor == 0 {
+                    self.direction = Some(true);
                 }
             }
         }

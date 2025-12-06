@@ -1,12 +1,13 @@
 use crate::elevator::{self, Elevator};
 use crate::floor::{self, Floor};
 use crate::passenger::Passenger;
+use crate::visualizer::Visualizer;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 pub struct Control {
-    elevators: [Elevator; 3],
+    elevators: Arc<Mutex<[Elevator; 3]>>,
     floors: Arc<Mutex<[Floor; 4]>>,
 }
 
@@ -19,11 +20,11 @@ impl Control {
                 Floor::new(2),
                 Floor::new(3),
             ])),
-            elevators: [
+            elevators: Arc::new(Mutex::new([
                 Elevator::new(0, 0),
                 Elevator::new(1, 0),
                 Elevator::new(2, 0),
-            ],
+            ])),
         }
     }
 
@@ -33,7 +34,6 @@ impl Control {
         for floor_id in 0..4 {
             let floors = Arc::clone(&self.floors);
             let handle = thread::spawn(move || {
-                println!("Floor {} thread started", floor_id);
                 loop {
                     // generate new passengers at random intervals
                     let sec: u64 = rand::thread_rng().gen_range(1..15);
@@ -48,40 +48,61 @@ impl Control {
             handlers.push(handle);
         }
 
-        for mut elevator in self.elevators {
+        for elevator_id in 0..3 {
             let floors = Arc::clone(&self.floors);
+            let elevators = Arc::clone(&self.elevators);
             let handle = thread::spawn(move || {
-                println!("Elevator {} thread started", elevator.get_id());
                 loop {
+                    let mut elevators_guard = elevators.lock().unwrap();
+                    let elevator = &mut elevators_guard[elevator_id];
                     let current_floor = elevator.get_current_floor();
                     
-                    passenger_leaves_elevator(&mut elevator, current_floor);
+                    passenger_leaves_elevator(elevator, current_floor);
 
                     let mut floors_guard = floors.lock().unwrap();
                     let floors_len = floors_guard.len();
                     let current_floor_obj = &mut floors_guard[current_floor as usize];
 
                     passenger_boards_elevator(
-                        &mut elevator,
+                        elevator,
                         current_floor_obj,
                         current_floor,
                         floors_len,
                     );
 
-                    start_elevator(&mut elevator, &floors_guard);
+                    start_elevator(elevator, &floors_guard);
 
                     drop(floors_guard);
 
                     if *elevator.get_door_state() == elevator::DoorState::Open {
                         elevator.set_door_state(elevator::DoorState::Closed);
                     }
+
+                    // Only move if elevator has a direction
                     elevator.next_floor();
+
+                    drop(elevators_guard);
 
                     thread::sleep(Duration::from_secs(2));
                 }
             });
             handlers.push(handle);
         }
+
+        // Visualization thread
+        let floors = Arc::clone(&self.floors);
+        let elevators = Arc::clone(&self.elevators);
+        let vis_handle = thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(500));
+                let elevators_guard = elevators.lock().unwrap();
+                let floors_guard = floors.lock().unwrap();
+                Visualizer::draw(&elevators_guard[..], &floors_guard);
+                drop(elevators_guard);
+                drop(floors_guard);
+            }
+        });
+        handlers.push(vis_handle);
 
         for handle in handlers {
             handle.join().unwrap();
@@ -103,34 +124,17 @@ fn generate_passengers(floor: &mut Floor) {
 
     floor.push_passenger(new_passenger);
 
-    println!(
-        "Floor {} has {} Passengers",
-        floor.get_id(),
-        floor.get_passengers().len()
-    );
 }
 
 fn passenger_leaves_elevator(elevator: &mut Elevator, current_floor: u32) {
-    if let Some(index) = elevator
+    
+    while let Some(index) = elevator
         .get_passengers()
         .iter()
-        .enumerate()
-        .find_map(|(index, p)| {
-            if p.get_destination_floor().unwrap_or(100 /* some number outside of floor range */) == current_floor {
-                Some(index)
-            } else {
-                None
-            }
-        })
+        .position(|p| p.get_destination_floor().unwrap_or(100) == current_floor)
     {
         elevator.set_door_state(elevator::DoorState::Open);
         elevator.remove_passenger(index);
-
-        println!(
-            "Passenger left elevator {} at floor {}",
-            elevator.get_id(),
-            current_floor
-        );
     }
 }
 
@@ -140,7 +144,7 @@ fn passenger_boards_elevator(
     current_floor_id: u32,
     floors_len: usize,
 ) {
-    if let Some(boarding_passenger_index) = current_floor.get_passengers().iter().position(|p| {
+    while let Some(boarding_passenger_index) = current_floor.get_passengers().iter().position(|p| {
         p.get_destination() == elevator.get_direction().unwrap_or(p.get_destination()) /*use unwrap or because otherwise if in 0 or 3 dont get picked up*/
     }) 
     && elevator.get_passengers().len() < 2
@@ -158,10 +162,6 @@ fn passenger_boards_elevator(
 
         elevator.board_passenger(boarding_passenger, destination_floor);
 
-        println!(
-            "Passenger boarded elevator in floor {}",
-            current_floor_id,
-        );
     }
 }
 
@@ -174,6 +174,9 @@ fn start_elevator(elevator: &mut Elevator, floors_guard: &std::sync::MutexGuard<
         {
             let direction = (floor_index as u32) > elevator.get_current_floor();
             elevator.set_direction(Some(direction));
+        } else {
+            // No passengers and no requests - become idle
+            elevator.set_direction(None);
         }
     }
 }

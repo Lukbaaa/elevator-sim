@@ -1,7 +1,8 @@
 mod floor;
 mod passenger;
 mod elevator;
-mod control;   
+mod control;
+mod visualizer;
 
 fn main() {
     let control = control::Control::new();
