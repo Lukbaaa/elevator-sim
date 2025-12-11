@@ -110,7 +110,7 @@ impl ControlUnit {
 
                     pending_floors[elevator_id].push(floor_request.floor);
                     println!(
-                        "ControlUnit: Etage {} → Fahrstuhl {} (Queue: {:?})",
+                        "ControlUnit: Etage {} ist Fahrstuhl {} (Queue: {:?})",
                         floor_request.floor, elevator_id, pending_floors[elevator_id]
                     );
                 }
