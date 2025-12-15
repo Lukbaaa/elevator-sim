@@ -148,7 +148,7 @@ fn update_simulation(controller: &mut ElevatorController, persons: &mut Vec<Pers
     let mut rng = rand::rng();
     use rand::Rng;
     if persons.len() < 30 && rng.random_bool(0.15) {
-        //persons.push(Person::new_rnd());
+        persons.push(Person::new_rnd());
     }
 
     let mut to_remove = Vec::new();

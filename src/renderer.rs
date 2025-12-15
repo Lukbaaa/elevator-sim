@@ -137,6 +137,7 @@ fn draw_elevator(
         State::Waiting => write!(screen, "{}|     Waiting    |", safe_goto(x, y + 1)).unwrap(),
     }
 
+    write!(screen, "{}{}", safe_goto(x+15, y + 1), elevator_state.destination).unwrap();
     write!(screen, "{}|  {}", safe_goto(x, y + 1), elevator_state.floor).unwrap();
     write!(screen, "{}------------------", safe_goto(x, y + 2)).unwrap();
 

@@ -14,6 +14,8 @@ pub struct ElevatorController {
     pickup_requests: Vec<PickupRequest>,
 }
 
+const MAX_CAPACITY: i32 = 2;
+
 impl ElevatorController {
     pub fn new_with_elevators() -> Self {
         let elevator1 = Elevator::new(0);
@@ -59,12 +61,29 @@ impl ElevatorController {
         for (i, req) in self.pickup_requests.iter_mut().enumerate() {
             let floor = req.floor;
 
+            // If the currently assigned elevator is full and not handling this floor, free it up.
+            if let Some(idx) = req.assigned_elevator {
+                let state = self.elevators[idx].elevator_state.lock().unwrap();
+                let at_floor = state.floor == floor
+                    && matches!(state.state, State::Waiting | State::Opening | State::Closing);
+                let full = state.passenger_count >= MAX_CAPACITY;
+                drop(state);
+
+                if full && !at_floor {
+                    req.assigned_elevator = None;
+                }
+            }
+
             if req.assigned_elevator.is_none() {
                 let mut best_elevator = None;
                 let mut min_distance = i32::MAX;
 
                 for (idx, elevator) in self.elevators.iter().enumerate() {
                     let state = elevator.elevator_state.lock().unwrap();
+                    if state.passenger_count >= MAX_CAPACITY {
+                        // ignore full elevators for new assignments
+                        continue;
+                    }
 
                     if state.floor == floor
                         && matches!(
@@ -110,6 +129,7 @@ impl ElevatorController {
 
             if let Some(elevator_idx) = req.assigned_elevator {
                 let state = self.elevators[elevator_idx].elevator_state.lock().unwrap();
+                let full = state.passenger_count >= MAX_CAPACITY;
                 let elevator_at_floor = state.floor == floor
                     && matches!(
                         state.state,
@@ -117,7 +137,7 @@ impl ElevatorController {
                     );
                 drop(state);
 
-                if elevator_at_floor {
+                if elevator_at_floor && !full {
                     handled_indices.push(i);
                 }
             }
