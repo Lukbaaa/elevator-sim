@@ -4,12 +4,9 @@ use crate::passenger::Passenger;
 pub enum DoorState {
     Open,
     Closed,
-    Opening,
-    Closing,
 }
 #[derive(Clone)]
 pub struct Elevator {
-    id: u32,
     current_floor: u32,
     direction: Option<bool>, // true for up, false for down, none for idle
     door_state: DoorState,
@@ -17,18 +14,13 @@ pub struct Elevator {
 }
 
 impl Elevator {
-    pub fn new(id: u32, floor_id: u32) -> Self {
+    pub fn new( floor_id: u32) -> Self {
         Self {
-            id,
             current_floor: floor_id,
             door_state: DoorState::Closed,
             passengers: Vec::new(),
             direction: None,
         }
-    }
-
-    pub fn get_id(&self) -> u32 {
-        self.id
     }
 
     pub fn get_passengers(&self) -> &Vec<Passenger> {

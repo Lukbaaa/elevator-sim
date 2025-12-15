@@ -11,7 +11,7 @@ impl Visualizer {
 
     pub fn draw(elevators: &[Elevator], floors: &MutexGuard<'_, [Floor; 4]>) {
         Self::clear_screen();
-        
+
         println!("╔════════════════════════════════════════════════════════════════╗");
         println!("║           ELEVATOR SIMULATION - BUILDING VIEW                  ║");
         println!("╚════════════════════════════════════════════════════════════════╝");
@@ -24,46 +24,56 @@ impl Visualizer {
                 println!("├─────┼─────────┼─────────┼─────────┼──────────────────────┤");
             }
         }
-        
+
         println!("└─────┴─────────┴─────────┴─────────┴──────────────────────┘");
         Self::draw_legend();
     }
 
     fn draw_floor(floor_num: u32, elevators: &[Elevator], floor: &Floor) {
         let floor_passengers = floor.get_passengers();
-        
+
         // Draw floor number and elevator shafts
         print!("│ F{} │", floor_num);
-        
-        for (i, elevator) in elevators.iter().enumerate() {
+
+        for (_, elevator) in elevators.iter().enumerate() {
             if elevator.get_current_floor() == floor_num {
                 let passenger_count = elevator.get_passengers().len();
-                
+
                 // Direction indicator
                 let direction = match elevator.get_direction() {
                     Some(true) => "↑",
                     Some(false) => "↓",
                     None => "○",
                 };
-                
+
                 // Door state with distinct visual representations
                 let door = match elevator.get_door_state() {
-                    DoorState::Open => "╔═╗",      // Fully open
-                    DoorState::Opening => "╔─╗",   // Opening
-                    DoorState::Closing => "║─║",   // Closing
-                    DoorState::Closed => "║█║",    // Closed
+                    DoorState::Open => "╔═╗",    // Fully open
+                    DoorState::Closed => "║█║",  // Closed
                 };
-                
-                print!(" {}{}{} {} │", direction, passenger_count, if passenger_count < 10 { " " } else { "" }, door);
+
+                print!(
+                    " {}{}{} {} │",
+                    direction,
+                    passenger_count,
+                    if passenger_count < 10 { " " } else { "" },
+                    door
+                );
             } else {
                 print!("    │    │");
             }
         }
-        
+
         // Draw waiting passengers with better spacing
-        let waiting_up = floor_passengers.iter().filter(|p| p.get_destination()).count();
-        let waiting_down = floor_passengers.iter().filter(|p| !p.get_destination()).count();
-        
+        let waiting_up = floor_passengers
+            .iter()
+            .filter(|p| p.get_destination())
+            .count();
+        let waiting_down = floor_passengers
+            .iter()
+            .filter(|p| !p.get_destination())
+            .count();
+
         print!(" ");
         if waiting_up > 0 && waiting_down > 0 {
             print!("↑{} ↓{:<2}", waiting_up, waiting_down);

@@ -21,9 +21,9 @@ impl Control {
                 Floor::new(3),
             ])),
             elevators: Arc::new(Mutex::new([
-                Elevator::new(0, 0),
-                Elevator::new(1, 0),
-                Elevator::new(2, 0),
+                Elevator::new( 0),
+                Elevator::new( 0),
+                Elevator::new( 0),
             ])),
         }
     }
@@ -36,8 +36,8 @@ impl Control {
             let handle = thread::spawn(move || {
                 loop {
                     // generate new passengers at random intervals
-                    let sec: u64 = rand::thread_rng().gen_range(1..15);
-                    thread::sleep(Duration::from_secs(sec));
+                    let sec: u64 = rand::thread_rng().gen_range(100..1500);
+                    thread::sleep(Duration::from_millis(sec));
                     let mut floors = floors.lock().unwrap();
 
                     generate_passengers(&mut floors[floor_id]);
@@ -83,7 +83,7 @@ impl Control {
 
                     drop(elevators_guard);
 
-                    thread::sleep(Duration::from_secs(2));
+                    thread::sleep(Duration::from_millis(500));
                 }
             });
             handlers.push(handle);
