@@ -61,7 +61,6 @@ impl ElevatorController {
         for (i, req) in self.pickup_requests.iter_mut().enumerate() {
             let floor = req.floor;
 
-            // If the currently assigned elevator is full and not handling this floor, free it up.
             if let Some(idx) = req.assigned_elevator {
                 let state = self.elevators[idx].elevator_state.lock().unwrap();
                 let at_floor = state.floor == floor
@@ -81,7 +80,6 @@ impl ElevatorController {
                 for (idx, elevator) in self.elevators.iter().enumerate() {
                     let state = elevator.elevator_state.lock().unwrap();
                     if state.passenger_count >= MAX_CAPACITY {
-                        // ignore full elevators for new assignments
                         continue;
                     }
 
