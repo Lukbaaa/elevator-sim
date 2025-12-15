@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 use std::time::Duration;
 
@@ -42,7 +45,7 @@ impl ElevatorState {
         }
     }
 
-    pub fn step(&mut self, dt: f64) {
+    pub fn step(&mut self) {
         if self.entry_cooldown > 0 {
             self.entry_cooldown -= 1;
         }
@@ -121,6 +124,7 @@ impl ElevatorState {
 pub struct Elevator {
     pub number: usize,
     pub elevator_state: Arc<Mutex<ElevatorState>>,
+    paused: Arc<AtomicBool>,
 }
 
 impl Elevator {
@@ -140,13 +144,18 @@ impl Elevator {
 
         let shared_state = Arc::new(Mutex::new(elevator_state));
         let thread_state = Arc::clone(&shared_state);
+        let paused_flag = Arc::new(AtomicBool::new(false));
+        let paused_for_thread = Arc::clone(&paused_flag);
 
         thread::spawn(move || {
             loop {
                 thread::sleep(Duration::from_millis(40));
+                if paused_for_thread.load(Ordering::Relaxed) {
+                    continue;
+                }
                 {
                     let mut state = thread_state.lock().unwrap();
-                    state.step(0.);
+                    state.step();
                 }
             }
         });
@@ -154,6 +163,7 @@ impl Elevator {
         Elevator {
             number,
             elevator_state: shared_state,
+            paused: paused_flag,
         }
     }
 
@@ -223,5 +233,9 @@ impl Elevator {
         es.passenger_count = 0;
         es.wait_timer = 0;
         es.entry_cooldown = 0;
+    }
+
+    pub fn set_paused(&self, paused: bool) {
+        self.paused.store(paused, Ordering::Relaxed);
     }
 }

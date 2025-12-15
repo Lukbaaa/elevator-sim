@@ -79,6 +79,7 @@ fn main() {
         let mut tick_duration = Duration::from_millis(DEFAULT_TICK_DURATION);
         let mut i = 0;
         let mut pause = false;
+        let mut manual = false;
 
         let mut elevator_controller = ElevatorController::new_with_elevators();
 
@@ -93,27 +94,39 @@ fn main() {
             for e in rx.try_iter() {
                 match e {
                     Event::Quit => quit = true,
-                    Event::Pause => pause = !pause,
+                    Event::Pause => {
+                        pause = !pause;
+                        elevator_controller.set_paused(pause);
+                        debug(format!("Paused: {}", pause));
+                    }
                     Event::SpeedUp => {
                         if tick_duration.as_millis() > (DEFAULT_TICK_DURATION) as u128 / 2 {
                             tick_duration -= Duration::from_millis(5)
                         }
+                        debug(format!("Speeded up simulation"));
                     }
                     Event::SlowDown => {
                         if tick_duration.as_millis() < (DEFAULT_TICK_DURATION) as u128 * 2 {
                             tick_duration += Duration::from_millis(5)
                         }
+                        debug(format!("Slowed down simulation"));
                     }
                     Event::Reset => {
                         elevator_controller.reset();
+                        elevator_controller.set_paused(pause);
                         persons.clear();
                         for _ in 0..5 {
                             persons.push(Person::new_rnd());
                         }
+                        debug(format!("Reset simulation"));
                     }
-                    Event::Manual => {}
+                    Event::Manual => { 
+                        manual = !manual; 
+                        debug(format!("Manual mode: {}", manual));
+                    }
                     Event::Spawn(floor, destination) => {
                         persons.push(Person::new(floor as i32, destination as i32));
+                        debug(format!("Spawned person from floor {} with destination {}", floor, destination));
                     }
                 }
             }
@@ -123,7 +136,7 @@ fn main() {
                 break;
             }
             if !pause {
-                update_simulation(&mut elevator_controller, &mut persons);
+                update_simulation(&mut elevator_controller, &mut persons, manual);
 
                 render(
                     &mut screen,
@@ -142,12 +155,12 @@ fn main() {
     }
 }
 
-fn update_simulation(controller: &mut ElevatorController, persons: &mut Vec<Person>) {
+fn update_simulation(controller: &mut ElevatorController, persons: &mut Vec<Person>, manual: bool) {
     controller.update();
 
     let mut rng = rand::rng();
     use rand::Rng;
-    if persons.len() < 30 && rng.random_bool(0.15) {
+    if persons.len() < 30 && rng.random_bool(0.15) && !manual {
         persons.push(Person::new_rnd());
     }
 

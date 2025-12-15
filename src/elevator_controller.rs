@@ -154,4 +154,10 @@ impl ElevatorController {
         }
         self.pickup_requests.clear();
     }
+
+    pub fn set_paused(&self, paused: bool) {
+        for elevator in &self.elevators {
+            elevator.set_paused(paused);
+        }
+    }
 }
